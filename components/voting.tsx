@@ -61,7 +61,7 @@ function assignPairsToVoter(voterId: string, allPlayerIds: string[], sessionCode
 }
 
 export function Voting() {
-  const { session, currentPlayer, submitVote, setPhase } = useGameStore();
+  const { session, currentPlayer, submitVote, setPhase, requestSync } = useGameStore();
   const [votingComplete, setVotingComplete] = useState(false);
 
   // Get all player IDs who have artwork
@@ -109,6 +109,17 @@ export function Voting() {
       setVotingComplete(true);
     }
   }, [remainingPairs.length, assignedPairs.length]);
+
+  // Auto-request sync if no artworks found (might be stale data)
+  useEffect(() => {
+    if (assignedPairs.length === 0 && playerIdsWithArtwork.length < 2 && session) {
+      const timer = setTimeout(() => {
+        console.log("[Voting] No artworks found, requesting sync...");
+        requestSync();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [assignedPairs.length, playerIdsWithArtwork.length, session, requestSync]);
 
   // Admin can transition to presentation
   const isAdmin = currentPlayer?.isAdmin || currentPlayer?.isObserver;
@@ -192,20 +203,7 @@ export function Voting() {
     );
   }
 
-  // No pairs to vote (not enough players) - request sync
-  const { requestSync } = useGameStore();
-
-  useEffect(() => {
-    // Auto-request sync if no artworks found (might be stale data)
-    if (assignedPairs.length === 0 && playerIdsWithArtwork.length < 2 && session) {
-      const timer = setTimeout(() => {
-        console.log("[Voting] No artworks found, requesting sync...");
-        requestSync();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [assignedPairs.length, playerIdsWithArtwork.length, session, requestSync]);
-
+  // No pairs to vote (not enough players)
   if (assignedPairs.length === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
