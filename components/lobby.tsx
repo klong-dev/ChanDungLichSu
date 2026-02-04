@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGameStore } from "@/lib/game-store";
-import { Users, Copy, Check, Play, Sparkles, Clock, Wifi, WifiOff, Loader2 } from "lucide-react";
+import { Users, Copy, Check, Play, Sparkles, Clock, Wifi, WifiOff, Loader2, QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const TIME_OPTIONS = [
   { label: "1 phút", value: 60 },
@@ -23,6 +25,29 @@ export function Lobby() {
   const [error, setError] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+
+  // Generate join URL for QR code
+  const getJoinUrl = () => {
+    if (typeof window !== "undefined" && session?.code) {
+      return `${window.location.origin}?join=${session.code}`;
+    }
+    return "";
+  };
+
+  // Check for join code in URL params
+  useEffect(() => {
+    if (typeof window !== "undefined" && !session) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const joinCode = urlParams.get("join");
+      if (joinCode) {
+        setSessionCode(joinCode.toUpperCase());
+        setMode("join");
+        // Clear the URL param
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    }
+  }, [session]);
 
   // Initialize sync and poll for session updates
   useEffect(() => {
@@ -183,8 +208,32 @@ export function Lobby() {
                 <Button variant="ghost" size="icon" onClick={copySessionCode} className="shrink-0">
                   {copied ? <Check className="w-5 h-5 text-primary" /> : <Copy className="w-5 h-5" />}
                 </Button>
+                {currentPlayer.isAdmin && (
+                  <Button variant="ghost" size="icon" onClick={() => setShowQR(true)} className="shrink-0" title="Hiển thị mã QR">
+                    <QrCode className="w-5 h-5" />
+                  </Button>
+                )}
               </div>
             </div>
+
+            {/* QR Code Dialog */}
+            <Dialog open={showQR} onOpenChange={setShowQR}>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle className="text-center">Quét mã để tham gia</DialogTitle>
+                </DialogHeader>
+                <div className="flex flex-col items-center gap-4 py-4">
+                  <div className="bg-white p-4 rounded-xl">
+                    <QRCodeSVG value={getJoinUrl()} size={200} level="H" includeMargin={true} />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Mã phòng</p>
+                    <p className="text-2xl font-bold tracking-widest text-primary">{session.code}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">Quét mã QR hoặc nhập mã phòng để tham gia</p>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Players List */}
             <div>
