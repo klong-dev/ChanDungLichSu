@@ -57,16 +57,32 @@ export function DrawingCanvas() {
     return () => clearInterval(timer);
   }, [timeRemaining, setTimeRemaining, setPhase, currentPlayer, updateArtwork]);
 
-  // Initialize canvas
-  useEffect(() => {
+  // Refs for canvas container
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Initialize and resize canvas
+  const initCanvas = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Set canvas size
-    const rect = canvas.getBoundingClientRect();
+    // Get current canvas data before resize
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d");
+    let hasExistingContent = false;
+
+    if (canvas.width > 0 && canvas.height > 0) {
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      tempCtx?.drawImage(canvas, 0, 0);
+      hasExistingContent = true;
+    }
+
+    // Set canvas size to match container
+    const rect = container.getBoundingClientRect();
     canvas.width = rect.width * window.devicePixelRatio;
     canvas.height = rect.height * window.devicePixelRatio;
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
@@ -74,7 +90,32 @@ export function DrawingCanvas() {
     // Set white background
     ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, rect.width, rect.height);
+
+    // Restore previous content if any
+    if (hasExistingContent && tempCtx) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
   }, []);
+
+  // Initialize canvas on mount
+  useEffect(() => {
+    // Small delay to ensure container is properly sized
+    const timer = setTimeout(initCanvas, 100);
+    return () => clearTimeout(timer);
+  }, [initCanvas]);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      initCanvas();
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [initCanvas]);
 
   const getCoordinates = useCallback((e: React.MouseEvent | React.TouchEvent): { x: number; y: number } | null => {
     const canvas = canvasRef.current;
@@ -201,8 +242,8 @@ export function DrawingCanvas() {
         {/* Canvas - Main area */}
         <div className="flex-1 flex flex-col min-h-0 order-1 lg:order-2">
           <Card className="flex-1 p-1 lg:p-2 border-2 bg-card overflow-hidden">
-            <div className="w-full h-full bg-canvas rounded-lg overflow-hidden relative" style={{ minHeight: "calc(100vh - 280px)" }}>
-              <canvas ref={canvasRef} className="w-full h-full touch-none cursor-crosshair" style={{ touchAction: "none" }} onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
+            <div ref={containerRef} className="w-full h-full bg-canvas rounded-lg overflow-hidden relative" style={{ minHeight: "calc(100vh - 280px)" }}>
+              <canvas ref={canvasRef} className="absolute inset-0 w-full h-full touch-none cursor-crosshair" style={{ touchAction: "none" }} onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
             </div>
           </Card>
         </div>
